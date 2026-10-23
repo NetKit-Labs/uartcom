@@ -1,6 +1,6 @@
 # uartcom
 
-Register-level USART driver and console firmware for the **NUCLEO-F446RE** (STM32F446RET6). The UART path does not call the STM32 HAL. Clocks, GPIO, and the NVIC are programmed the same way, by writing the peripheral registers directly.
+Register-level USART driver and console firmware for the **NUCLEO-F446RE** (STM32F446RET6). The UART path does not call the STM32 HAL or the low-level library. Bit names come from RM0390, not from ST's headers. Clocks, GPIO, and the NVIC are programmed the same way. The other ways to do this are ST's CMSIS headers (`USART2->CR1`) or the low-level library (`LL_USART_*`), which is a thin wrapper over those headers. See [docs/uart-driver.md](docs/uart-driver.md).
 
 The board's ST-Link USB port is the whole lab setup. USART2 is wired to the ST-Link virtual COM port, and a Python 3 script on the computer drives the firmware.
 

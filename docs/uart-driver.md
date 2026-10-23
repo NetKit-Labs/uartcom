@@ -2,6 +2,17 @@
 
 The driver programs the STM32F4 USART by writing `SR`, `DR`, `BRR`, `CR1`, `CR2`, and `CR3`. It does not call the STM32 HAL, and it does not wrap a HAL handle. The register map is the one in RM0390. `uartcom::reg::Block` is a local layout with `static_assert`s on every offset through `GTPR` at `0x18`.
 
+## Register access
+
+This tree includes no STM32Cube software. The bit names in `include/uartcom/registers.hpp` were taken from RM0390. Clock, GPIO, and NVIC setup in `firmware/` use the same style of private addresses.
+
+The other options are ST's headers, in either of two forms:
+
+- The CMSIS device header, written directly: `USART2->CR1`, `USART_CR1_UE`.
+- The low-level library: `LL_USART_Enable()`. Those functions are thin inline wrappers over the same CMSIS registers, so using the low-level library uses the headers too.
+
+One of those forms is enough. This repo uses neither.
+
 USART2 lives at `0x40004400`. The driver never sees that address. `board::MmioUsart` holds the pointer and does the volatile accesses. Host tests pass `FakeUsart`, which implements the same methods and models `TXE`, `TC`, `RXNE`, and overrun. A C++20 `UsartHw` concept checks the method set when the compiler is new enough.
 
 ## Programming order
