@@ -9,7 +9,28 @@ jobs:
     name: Host tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
+      - name: Select a C++23 host compiler
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          pick=""
+          for cxx in c++ g++ g++-15 g++-14 g++-13; do
+            if ! command -v "$cxx" >/dev/null 2>&1; then
+              continue
+            fi
+            value=$(printf '%s\n' 'int main(){}' | "$cxx" -std=c++23 -dM -E -xc++ - 2>/dev/null | awk '$2=="__cplusplus"{print $3+0}')
+            if [ "${value:-0}" -ge 202302 ]; then
+              pick=$cxx
+              break
+            fi
+          done
+          if [ -z "$pick" ]; then
+            sudo apt-get install -y g++-14
+            pick=g++-14
+          fi
+          echo "HOST_CXX=$pick" >> "$GITHUB_ENV"
+          "$pick" --version
       - name: Unit, regression, and Python baud tests
         run: make test
 
@@ -17,7 +38,7 @@ jobs:
     name: Firmware
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Install Arm GNU toolchain
         run: |
           set -euo pipefail

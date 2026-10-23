@@ -10,9 +10,14 @@ OPENOCD ?= openocd
 # fails to find <cstdint>. tools/find-arm-cxx.sh falls back to a full toolchain.
 ARM_CXX := $(shell ARM_CXX_REQUEST='$(ARM_CXX_REQUEST)' sh tools/find-arm-cxx.sh)
 
-pick_std = $(shell if printf '%s\n' 'int main(){}' | $(1) -std=c++23 -fsyntax-only -xc++ - >/dev/null 2>&1; then echo c++23; \
-elif printf '%s\n' 'int main(){}' | $(1) -std=c++20 -fsyntax-only -xc++ - >/dev/null 2>&1; then echo c++20; \
-else echo c++17; fi)
+# Value of __cplusplus for one -std flag. Empty when the compiler rejects it.
+# Accepting -std=c++23 is not enough: some compilers still define 202100L.
+cxx_value = $(shell printf '%s\n' 'int main(){}' | $(1) -std=$(2) -dM -E -xc++ - 2>/dev/null | awk '$$2 == "__cplusplus" { print $$3 + 0 }')
+pick_std = $(shell \
+	v23='$(call cxx_value,$(1),c++23)'; v20='$(call cxx_value,$(1),c++20)'; \
+	if [ "$$v23" -ge 202302 ] 2>/dev/null; then echo c++23; \
+	elif [ "$$v20" -ge 202002 ] 2>/dev/null; then echo c++20; \
+	else echo c++17; fi)
 std_num = $(if $(filter c++23,$(1)),202302,$(if $(filter c++20,$(1)),202002,201703))
 
 HOST_STD := $(call pick_std,$(HOST_CXX))
