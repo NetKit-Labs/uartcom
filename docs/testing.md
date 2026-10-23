@@ -34,6 +34,12 @@ These freeze behavior that the unit tests only sample:
 
 `make test` runs both host binaries and `make test-python` (the baud-math cases in `tools/hwtest.py`). They do not open the serial port. GitHub Actions runs that target, plus `make firmware`, on every push and pull request. `make hwtest` is not part of CI because it needs the Nucleo.
 
+## Demo on the board
+
+Plug in the NUCLEO-F446RE through the ST-Link USB connector. Flash, then open the virtual COM port at 115200 8N1. The first line is `UARTCOM STM32F446RE USART2 ready`. Type `PING` and expect `PONG`. `ECHO hello`, `HELP`, `INFO`, and `BAUD` are the rest of a manual check. Commands are uppercase. The README has `screen` and `picocom` examples.
+
+Quit that terminal before the Python suite. The port cannot be shared.
+
 ## On-target Python tests
 
 ```sh

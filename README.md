@@ -6,15 +6,19 @@ The board's ST-Link USB port is the whole lab setup. USART2 is wired to the ST-L
 
 ## Hardware
 
+This firmware runs on one board: the **ST NUCLEO-F446RE**, MCU **STM32F446RET6**. It is not a generic Nucleo-64 image. A different Nucleo (F401, F411, L4, G4, H7, and so on) has another memory map and clock tree, and this ELF will not run there.
+
+The only cable is the USB plug on the on-board ST-Link (CN1). No external USB-UART adapter and no shield. On a stock board, solder bridges SB13 and SB14 are closed, which connects USART2 to the ST-Link virtual COM port (UM1724).
+
 | Item | Value |
 | --- | --- |
 | Board | NUCLEO-F446RE |
 | MCU | STM32F446RET6, Cortex-M4F, 180 MHz, 512 KiB flash, 128 KiB SRAM |
-| Link | USART2, PA2 TX / PA3 RX, alternate function 7 |
-| Host port | ST-Link VCP, 115200 8N1 (`/dev/cu.usbmodem*`) |
-| LED | LD2 on PA5, on after init, toggles once per reply, blinks fast on a fault |
-
-This tree was brought up on the Nucleo attached to this machine (ST-Link id `0x10006421`, 512 KiB flash). `make identify` reads that id again.
+| DBGMCU_IDCODE | `0x10006421` (DEV_ID `0x421`). `make identify` reads this |
+| Link | USART2 at `0x40004400`, PA2 TX / PA3 RX, alternate function 7, IRQ 38 |
+| Frame | 115200 8N1, one byte per interrupt. DMA is not used |
+| Host port | ST-Link VCP. macOS: `/dev/cu.usbmodem*`. Linux: `/dev/ttyACM*` |
+| LED | LD2 on PA5. On after init, toggles once per reply, blinks fast on a fault |
 
 Details: [docs/hardware.md](docs/hardware.md).
 
@@ -37,7 +41,50 @@ After reset the firmware prints:
 UARTCOM STM32F446RE USART2 ready
 ```
 
-A terminal at 115200 8N1 can type `PING`, `HELP`, or `ECHO hello`. The Python driver is `tools/hwtest.py`. Set `UARTCOM_PORT` if the VCP is not the only `/dev/cu.usbmodem*` device.
+## Demo
+
+Close any serial monitor before flashing. `make flash` programs `build/uartcom.elf` through the ST-Link and resets the MCU. LD2 turns on when USART2 is up.
+
+The port is 115200 8N1, no flow control. On macOS it is the `cu.usbmodem` device; on Linux it is `ttyACM`. Opening the port often resets the board, and the banner is the first line:
+
+```text
+UARTCOM STM32F446RE USART2 ready
+```
+
+Commands are uppercase and end with Enter. A hand session looks like this:
+
+```text
+PING
+PONG
+ECHO hello
+ECHO hello
+HELP
+HELP PING INFO ECHO HEX CRC32 STAT BAUD RESET
+```
+
+`INFO` reports the board, the clock, and the firmware `__cplusplus`. `BAUD` reports `BRR` and the ppm error. The full command list is [docs/protocol.md](docs/protocol.md).
+
+One way to open the port from a shell:
+
+```sh
+# macOS. Quit with Ctrl-A then K.
+screen /dev/cu.usbmodem11303 115200
+
+# Linux
+picocom -b 115200 /dev/ttyACM0
+```
+
+Use the path from `ls /dev/cu.usbmodem*` or `ls /dev/ttyACM*`. `screen` and `picocom` are examples; any 115200 8N1 terminal works. Quit the terminal before `make hwtest`, because the script needs the port to itself.
+
+The automated demo is the Python suite. It resets the board with OpenOCD, waits for the banner, and runs the commands above plus hex, CRC-32, and a binary frame:
+
+```sh
+make hwtest
+# or flash and test in one step
+make check-target
+```
+
+Set `UARTCOM_PORT` when more than one VCP is present. Host tests (`make test`) do not need the board. [docs/testing.md](docs/testing.md) describes each suite.
 
 ## Layout
 
@@ -46,7 +93,7 @@ include/uartcom/     baud math, frame encoding, ring, driver, protocol
 firmware/            startup, 180 MHz clock, GPIO, USART2 application
 tests/               host unit tests and register-level regression tests
 tools/hwtest.py      Python 3 driver that runs on the computer
-docs/                driver, protocol, hardware, and test notes
+docs/                driver, protocol, hardware, tests, and future work
 ```
 
 ```mermaid
@@ -112,3 +159,5 @@ Homebrew `arm-none-eabi-gcc` 16.2.0 is configured `--without-headers`, so it can
 - **Flash verify failed.** Confirm `make identify` prints `0x10006421` and `512 KiB`. This image is linked for the F446RE.
 - **`make firmware` cannot find `<cstdint>`.** Install a full Arm GCC (the xPack release works) or pass `ARM_CXX_REQUEST`.
 - **LD2 blinks rapidly.** The firmware took a fault. The usual cause during bring-up was a bad clock or a broken startup copy; `INFO` not appearing plus a blinking LED means the fault handler is running.
+
+Ideas that are not in this tree yet are listed in [docs/future.md](docs/future.md).
